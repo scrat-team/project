@@ -1,0 +1,21 @@
+.log {
+    border: 1px solid #f00;
+    padding: 3px 5px 5px;
+    margin: 0;
+}
+
+.log li {
+    list-style: none;
+    margin-top: 2px;
+    padding: 5px 10px;
+    border: 1px solid #f33;
+    background-color: rgba(255, 0, 255, 0.3);
+}
+
+.log .notice {
+    background-color: rgba(125, 125, 255, 0.3);
+}
+
+.log .error {
+    background-color: rgba(255, 0, 0, 0.3);
+}
