@@ -1,6 +1,6 @@
-var info = require('./package.json');
-var name = info.name;
-var version = info.version;
+
+var name = 'proj';
+var version = '0.0.1';
 
 //requires
 var path = require('path');

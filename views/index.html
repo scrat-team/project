@@ -5,7 +5,13 @@
 </head>
 <body>
     <h1>it works</h1>
-    <script type="text/javascript" src="lib/scrat.js"></script>
-    <script type="text/javascript" src="index.js"></script>
+    <script type="text/javascript" src="lib/scrat/scrat.js"></script>
+    <script>
+        require.config(__FRAMEWORK_CONFIG__);
+        require.async('foo', function(foo){
+            foo.start('it works');
+            foo.stop('it works');
+        });
+    </script>
 </body>
 </html>
