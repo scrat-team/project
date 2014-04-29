@@ -14,11 +14,11 @@ var app = express();
 //static
 app.use(express.static(__dirname + '/public'));
 
-//index
+//combo & favicon & index
 app.get('/', function(req, res){
     var url = req.url;
     if(url[1] === '?' && url[2] === '?'){ //combo
-        url = url.substring(3).replace(/&.*$/, '');
+        url = url.replace(/^\/\?+|&.*$/g, '');
         var files = url.split(',');
         var content = '';
         for(var i = 0, len = files.length; i < len; i++){
@@ -44,8 +44,6 @@ app.get('/', function(req, res){
         res.sendfile(__dirname + '/public/' + name + '/' + version + '/index.html');
     }
 });
-
-//combo
 
 
 //proxy
