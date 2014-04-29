@@ -1,4 +1,3 @@
-
 var name = 'proj';
 var version = '0.0.1';
 
@@ -17,8 +16,10 @@ app.use(express.static(__dirname + '/public'));
 
 //index
 app.get('/', function(req, res){
-    if(req.url[1] === '?' && req.url[2] === '?'){ //combo
-        var files = req.url.substring(3).split(',');
+    var url = req.url;
+    if(url[1] === '?' && url[2] === '?'){ //combo
+        url = url.substring(3).replace(/&.*$/, '');
+        var files = url.split(',');
         var content = '';
         for(var i = 0, len = files.length; i < len; i++){
             var file = __dirname + '/public/c/' + files[i];
@@ -29,15 +30,15 @@ app.get('/', function(req, res){
                 return;
             }
         }
-        if(/\.css$/i.test(req.url)){
+        if(/\.css$/i.test(url)){
             res.set('Content-Type', 'text/css');
-        } else if(/\.js$/i.test(req.url)){
+        } else if(/\.js$/i.test(url)){
             res.set('Content-Type', 'text/javascript');
         } else {
             res.set('Content-Type', 'text/plain');
         }
         res.send(content);
-    } else if(req.url === '/favicon.ico') {       //favicon.ico
+    } else if(url === '/favicon.ico') {       //favicon.ico
         res.send(404);
     } else {
         res.sendfile(__dirname + '/public/' + name + '/' + version + '/index.html');
