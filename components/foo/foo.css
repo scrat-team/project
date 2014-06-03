@@ -1,8 +1,49 @@
-/**
- * @require ./bar.css
- */
+.foo > span {
+    display: inline-block;
+    width: 61px;
+    height: 61px;
+    margin: 8px;
+    position: relative;
+}
 
-.foo {
-    width: 300px;
-    height: 100px;
+.foo > span > img {
+    width: 100%;
+    height: 100%;
+}
+
+.foo.shake > span:after {
+    content: 'x';
+    position: absolute;
+    top: -5px; right: -5px;
+    background-color: #fff;
+    border: 1px solid #999;
+    border-radius: 6px;
+    height: 12px; width: 12px;
+    line-height: 12px;
+    font-size: 12px;
+    text-align: center;
+}
+.foo.shake > span {
+    -webkit-animation: foo-shake 0.2s ease-out infinite;
+}
+.foo.shake > span:nth-child(2n) {
+    -webkit-animation: foo-shake 0.15s ease-out infinite;
+}
+.foo.shake > span:nth-child(3n + 1) {
+    -webkit-animation: foo-shake 0.21s ease-out infinite;
+}
+
+@-webkit-keyframes foo-shake {
+    0% {
+        -webkit-transform: rotate(0);
+    }
+    25% {
+        -webkit-transform: rotate(3deg);
+    }
+    75% {
+        -webkit-transform: rotate(-3deg);
+    }
+    100% {
+        -webkit-transform: rotate(0);
+    }
 }

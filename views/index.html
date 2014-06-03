@@ -1,17 +1,17 @@
 <!doctype html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>hello world</title>
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1" />
+    <link rel="stylesheet" type="text/css" href="lib/reset/reset.css">
+    <link rel="stylesheet" type="text/css" href="index.css">
 </head>
 <body>
-    <h1>it works</h1>
-    <script type="text/javascript" src="lib/scrat/scrat.js"></script>
-    <script>
-        require.config(__FRAMEWORK_CONFIG__);
-        require.async('foo', function(foo){
-            foo.start('it works');
-            foo.stop('it works');
-        });
-    </script>
+    <header id="header"></header>
+    <div id="main" class="main"></div>
+    <script src="lib/scrat/scrat.js"></script>
+    <script src="lib/handlebars/handlebars.runtime-v1.3.0.js"></script>
+    <script src="index.js"></script>
 </body>
 </html>

@@ -1,20 +1,26 @@
-(function (global, undefined) {
+(function (global) {
     'use strict';
 
     var slice = Array.prototype.slice,
+        localStorage = global.localStorage,
         proto = {},
         scrat = create(proto);
 
+    scrat.version = '0.3.4';
     scrat.options = {
-        debug: false,
+        prefix: '__SCRAT__',
+        cache: false,
+        hash: '',
         timeout: 15, // seconds
         alias: {}, // key - name, value - id
         deps: {}, // key - id, value - name/id
         urlPattern: null, // '/path/to/resources/%s'
         comboPattern: null, // '/path/to/combo-service/%s' or function (ids) { return url; }
-        combo: false
+        combo: false,
+        maxUrlLength: 2000 // approximate value of combo url's max length (recommend 2000)
     };
     scrat.cache = {}; // key - id
+    scrat.traceback = null;
 
     /**
      * Mix obj to scrat.options
@@ -36,6 +42,33 @@
                 options[key] = value;
             }
         });
+
+        // detect localStorage support and activate cache ability
+        try {
+            if (options.hash !== localStorage.getItem('__SCRAT_HASH__')) {
+                scrat.clean();
+                localStorage.setItem('__SCRAT_HASH__', options.hash);
+            }
+            options.cache = options.cache && !!options.hash;
+        } catch (e) {
+            options.cache = false;
+        }
+
+        // detect scrat=nocombo,nocache in location.search
+        if (/\bscrat=([\w,]+)\b/.test(location.search)) {
+            each(RegExp.$1.split(','), function (o) {
+                switch (o) {
+                case 'nocache':
+                    scrat.clean();
+                    options.cache = false;
+                    break;
+                case 'nocombo':
+                    options.combo = false;
+                    break;
+                }
+            });
+        }
+        return options;
     };
 
     /**
@@ -56,16 +89,18 @@
             debug('scrat.async', '[' + names.join(', ') + '] callback called');
         });
         reactor.run();
+        scrat._r = reactor;
     };
 
     /**
-     * Define a module with a factory funciton or any types of value
+     * Define a JS module with a factory funciton
      * @param {string} id
-     * @param {*} factory
+     * @param {function} factory
      */
     proto.define = function (id, factory) {
         debug('scrat.define', '[' + id + ']');
-        var res = scrat.cache[id];
+        var options = scrat.options,
+            res = scrat.cache[id];
         if (res) {
             res.factory = factory;
         } else {
@@ -75,6 +110,70 @@
                 factory: factory
             };
         }
+        if (options.cache) {
+            localStorage.setItem(options.prefix + id, factory.toString());
+        }
+    };
+
+    /**
+     * Define a CSS module
+     * @param {string} id
+     * @param {string} css
+     */
+    proto.defineCSS = function (id, css, noParsing) {
+        debug('scrat.defineCSS', '[' + id + ']');
+        var options = scrat.options;
+        scrat.cache[id] = {
+            id: id,
+            loaded: true,
+            rawCSS: css
+        };
+        if (noParsing !== false) requireCSS(id);
+        if (options.cache) localStorage.setItem(options.prefix + id, css);
+    };
+
+    /**
+     * Get a defined module
+     * @param {string} id
+     * @returns {object} module
+     */
+    proto.get = function (id) {
+        /* jshint evil:true */
+        debug('scrat.get', '[' + id + ']');
+        var options = scrat.options,
+            type = fileType(id),
+            res = scrat.cache[id],
+            raw;
+        if (res) {
+            return res;
+        } else if (options.cache) {
+            raw = localStorage.getItem(options.prefix + id);
+            if (raw) {
+                if (type === 'js') {
+                    window['eval'].call(window, 'define("' + id + '",' + raw + ')');
+                } else if (type === 'css') {
+                    scrat.defineCSS(id, raw, false);
+                }
+                scrat.cache[id].loaded = false;
+                return scrat.cache[id];
+            }
+        }
+        return null;
+    };
+
+    /**
+     * Clean module cache in localStorage
+     */
+    proto.clean = function () {
+        debug('scrat.clean');
+        try {
+            each(localStorage, function (_, key) {
+                if (~key.indexOf(scrat.options.prefix)) {
+                    localStorage.removeItem(key);
+                }
+            });
+            localStorage.removeItem('__SCRAT_HASH__');
+        } catch (e) {}
     };
 
     /**
@@ -118,7 +217,7 @@
             isOldWebKit = +navigator.userAgent
                 .replace(/.*AppleWebKit\/(\d+)\..*/, '$1') < 536,
 
-            head = document.getElementsByTagName('head')[0],
+            head = document.head,
             node = document.createElement(isScript ? 'script' : 'link'),
             supportOnload = 'onload' in node,
             tid = setTimeout(onerror, (options.timeout || 15) * 1000),
@@ -137,8 +236,8 @@
         }
 
         node.onload = node.onreadystatechange = function () {
-            if (!node.readyState ||
-                /loaded|complete/.test(node.readyState)) {
+            if (node && (!node.readyState ||
+                /loaded|complete/.test(node.readyState))) {
                 clearTimeout(tid);
                 node.onload = node.onreadystatechange = null;
                 if (isScript && head && node.parentNode) head.removeChild(node);
@@ -201,28 +300,42 @@
         each(args, function (arg) {
             var id = scrat.alias(arg),
                 type = fileType(id),
-                res = scrat.cache[id];
+                res = scrat.get(id);
 
-            if (that.depended[id] || res && res.loaded) return;
-            if (res && !res.loaded && type !== 'unknown') {
+            if (!res) {
+                res = scrat.cache[id] = {
+                    id: id,
+                    loaded: false,
+                    onload: []
+                };
+            } else if (that.depended[id] || res.loaded) return;
+
+            that.depended[id] = 1;
+            that.push.apply(that, scrat.options.deps[id]);
+
+            if ((type === 'css' && !res.rawCSS && !res.parsed) ||
+                (type === 'js' && !res.factory && !res.exports)) {
+                (that.depends[type] || (that.depends[type] = [])).push(res);
                 ++that.length;
                 res.onload.push(onload);
-                return;
+            } else if (res.rawCSS) {
+                requireCSS(id);
             }
-
-            res = scrat.cache[id] = {
-                id: id,
-                loaded: false,
-                onload: [onload]
-            };
-
-            that.push.apply(that, scrat.options.deps[id]);
-            that.depended[id] = 1;
-            if (!that.depends[type]) that.depends[type] = [];
-            that.depends[type].push(res);
-            if (type !== 'unknown') ++that.length;
         });
     };
+
+    function makeOnload(deps) {
+        deps = deps.slice();
+        return function () {
+            each(deps, function (res) {
+                res.loaded = true;
+                while (res.onload.length) {
+                    var onload = res.onload.shift();
+                    onload.call(res);
+                }
+            });
+        };
+    }
 
     rproto.run = function () {
         var that = this,
@@ -242,18 +355,24 @@
         debug('reactor.run', 'combo: ' + combo);
         if (combo) {
             each(['css', 'js'], function (type) {
-                var ids = [];
-                each(depends[type], function (res) {
-                    ids.push(res.id);
-                });
-                scrat.load(that.genUrl(ids), function () {
-                    each(depends[type], function (res) {
-                        res.loaded = true;
-                        while (res.onload.length) {
-                            var onload = res.onload.shift();
-                            onload.call(res);
-                        }
-                    });
+                var urlLength = 0,
+                    ids = [],
+                    deps = [];
+
+                each(depends[type], function (res, i) {
+                    if (urlLength + res.id.length < options.maxUrlLength) {
+                        urlLength += res.id.length;
+                        ids.push(res.id);
+                        deps.push(res);
+                    } else {
+                        scrat.load(that.genUrl(ids), makeOnload(deps));
+                        urlLength = res.id.length;
+                        ids = [res.id];
+                        deps = [res];
+                    }
+                    if (i === depends[type].length - 1) {
+                        scrat.load(that.genUrl(ids), makeOnload(deps));
+                    }
                 });
             });
         } else {
@@ -274,6 +393,13 @@
 
         var options = scrat.options,
             url = options.combo && options.comboPattern || options.urlPattern;
+
+        if (options.cache && fileType(ids[0]) === 'css') {
+            each(ids, function (id, i) {
+                ids[i] = id + '.js';
+            });
+        }
+
         switch (type(url)) {
         case 'string':
             url = url.replace('%s', ids.join(','));
@@ -285,10 +411,7 @@
             url = ids.join(',');
         }
 
-        if (options.debug) {
-            url = url + (~url.indexOf('?') ? '&' : '?') + (+new Date());
-        }
-        return url;
+        return url + (~url.indexOf('?') ? '&' : '?') + options.hash;
     };
 
     /**
@@ -298,16 +421,19 @@
      */
     function require(name) {
         var id = scrat.alias(name),
-            module = scrat.cache[id];
+            module = scrat.get(id);
 
         if (fileType(id) !== 'js') return;
         if (!module) throw new Error('failed to require "' + name + '"');
-
         if (!module.exports) {
-            if (type(module.factory) === 'function') {
+            if (type(module.factory) !== 'function') {
+                throw new Error('failed to require "' + name + '"');
+            }
+            try {
                 module.factory.call(scrat, require, module.exports = {}, module);
-            } else {
-                module.exports = module.factory;
+            } catch (e) {
+                e.id = id;
+                throw (scrat.traceback = e);
             }
             delete module.factory;
             debug('require', '[' + id + '] factory called');
@@ -317,6 +443,28 @@
 
     // Mix scrat's prototype to require
     each(proto, function (m, k) { require[k] = m; });
+
+    /**
+     * Parse CSS module
+     * @param {string} name
+     */
+    function requireCSS(name) {
+        var id = scrat.alias(name),
+            module = scrat.get(id);
+
+        if (fileType(id) !== 'css') return;
+        if (!module) throw new Error('failed to require "' + name + '"');
+        if (!module.parsed) {
+            if (type(module.rawCSS) !== 'string') {
+                throw new Error('failed to require "' + name + '"');
+            }
+            var styleEl = document.createElement('style');
+            document.head.appendChild(styleEl);
+            styleEl.appendChild(document.createTextNode(module.rawCSS));
+            delete module.rawCSS;
+            module.parsed = true;
+        }
+    }
 
     function type(obj) {
         var t;
@@ -353,13 +501,13 @@
         return new Dummy();
     }
 
-    var TYPE_RE = /(?:\.)(\w+)(?:[?&,]|$)/g;
+    var TYPE_RE = /\.(js|css)(?=[?&,]|$)/i;
     function fileType(str) {
-        var ext = 'js',
-            match = str.match(TYPE_RE);
-        if (match && match.length) ext = RegExp.$1;
-        if (ext === 'json') ext = 'js';
-        else if (ext !== 'js' && ext !== 'css') ext = 'unknown';
+        var ext = 'js';
+        str.replace(TYPE_RE, function (m, $1) {
+            ext = $1;
+        });
+        if (ext !== 'js' && ext !== 'css') ext = 'unknown';
         return ext;
     }
 
@@ -369,7 +517,7 @@
             args = slice.call(arguments),
             style = 'color: #bada55',
             mod = args.shift(),
-            re = new RegExp(mod.replace(/[.\/\\]/, function (m) {
+            re = new RegExp(mod.replace(/[.\/\\]/g, function (m) {
                 return '\\' + m;
             }));
         mod = '%c' + mod;
@@ -388,4 +536,5 @@
 
     global.require = scrat;
     global.define = scrat.define;
+    global.defineCSS = scrat.defineCSS;
 })(this);

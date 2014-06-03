@@ -1,0 +1,11 @@
+.header {
+    height: 100%;
+    font-size: 20px;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: center;
+    -webkit-box-align: center;
+    background: -webkit-gradient(linear, 0 0, 0 100%, from(#4494e3), to(#254687));
+    color: #fff;
+    text-shadow: 0 2px 2px rgba(0, 0, 0, 0.4);
+}
