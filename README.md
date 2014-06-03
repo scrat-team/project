@@ -32,7 +32,7 @@ git clone https://github.com/scrat-team/project.git
     scrat server start
     ```
 
-1. 浏览页面 http://localhost:8082/
+1. 浏览页面 [http://localhost:8082/]
 
 ## 开发调试
 
