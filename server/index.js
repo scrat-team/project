@@ -13,11 +13,11 @@ var port = process.env.PORT || 8082;
 //express app
 var app = express();
 //static
-app.get(express.static(root + '/public'));
+app.use(express.static(root + '/public'));
 //combo
-app.get(combo(root + '/public/c'));
+app.use(combo(root + '/public/c'));
 //pages
-app.get(rewrite(root + '/public/' + info.name + '/' + info.version));
+app.use(rewrite(root + '/public/' + info.name + '/' + info.version));
 //http proxy
 app.use(proxy('http://hao.uc.cn'));
 //start
