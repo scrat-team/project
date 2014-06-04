@@ -42,16 +42,21 @@ git clone https://github.com/scrat-team/project.git
     cd porject
     ```
 
-1. 构建并监听文件变化（-w或--watch参数），文件修改后浏览器自动刷新（-L或--live参数）
+1. 启动调试服务器
+
+    ```bash
+    scrat server start
+    ```
+
+1. 打开新的命令窗口，构建并监听文件变化（-w或--watch参数），文件修改后浏览器自动刷新（-L或--live参数）
 
     ```bash
     scrat release -wL
     ```
-
-1. 打开新的命令窗口，启动调试服务器
+1. 构建并进行请求合并（-p或--pack参数），同时监听文件变化，修改文件后浏览器自动刷新
 
     ```bash
-    scrat server start
+    scrat release -pwL
     ```
 
 ## 发布上线
